@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bitkoin. Pay up</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Bitkoin. Pay up</h1>
+    <div class="userbar">
+      <span id="hdrHandle" class="chip">Not signed in</span>
+      <button id="btnLogout" class="btn red hidden">Logout</button>
+    </div>
+  </header>
+
+  <!-- auth -->
+  <section id="authSection" class="grid">
+    <div class="card span6">
+      <h2>Create Wallet</h2>
+      <p class="muted">
+        Pick a unique handle (like <span class="kbd">@alice</span>) and a password.
+      </p>
+      <div class="two">
+        <div>
+          <label>Handle</label>
+          <input id="regHandle" class="input" placeholder="@yourname" />
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="regPass" type="password" class="input" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnCreate" class="btn primary">Create wallet</button>
+        <span class="muted">Sign-in uses handle + password.</span>
+      </div>
+      <div id="regMsg" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card span6">
+      <h2>Login</h2>
+      <div class="two">
+        <div>
+          <label>Handle</label>
+          <input id="loginHandle" class="input" placeholder="@yourname" />
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="loginPass" type="password" class="input" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnLogin" class="btn">Login</button>
+      </div>
+      <div id="loginMsg" class="muted" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <!-- app sekshun -->
+  <section id="appSection" class="grid hidden">
+    <div class="card span4">
+      <h2>Wallet</h2>
+      <div class="row" style="align-items:flex-end;justify-content:space-between">
+        <div>
+          <div class="muted">Handle</div>
+          <div id="meHandle" class="balance" style="font-size:22px"></div>
+          <div class="muted">UID: <span id="meUid" class="mono"></span></div>
+        </div>
+        <div style="text-align:right">
+          <div class="muted">Balance</div>
+          <div class="balance"><span id="meBalance">0</span> BK</div>
+        </div>
+      </div>
+      <div id="appMsg" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card span4">
+      <h2>Mine Bitkoin (Quiz)</h2>
+      <div id="quizBox">
+        <div class="muted">Answer correctly to mint <b>1 BK</b>.</div>
+        <div id="quizQ" class="quizQ"></div>
+        <input id="quizA" class="input" placeholder="Your answer"/>
+        <div class="row" style="margin-top:10px">
+          <button id="btnMine" class="btn green">Mine 1 BK</button>
+          <button id="btnNextQ" class="btn">New question</button>
+        </div>
+        <div id="mineMsg" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div class="card span4">
+      <h2>Send Bitkoin</h2>
+      <div class="two">
+        <div>
+          <label>To @handle</label>
+          <input id="payTo" class="input" placeholder="@bob"/>
+        </div>
+        <div>
+          <label>Amount (BK)</label>
+          <input id="payAmt" type="number" min="1" step="1" class="input" placeholder="..."/>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <label>Memo (optional)</label>
+        <input id="payMemo" class="input" placeholder="For lunch"/>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnSend" class="btn primary">Send</button>
+      </div>
+      <div id="sendMsg" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card span6">
+      <h2>Your Coins</h2>
+      <div id="coinList" class="list"></div>
+    </div>
+
+    
+    <div class="card span6">
+      <h2>Transactions</h2>
+      <button id="btnAllTx" class="btn">View All Transactions</button>
+    </div>
+  </section>
+
+  <footer>
+    SekritSositee 2025
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

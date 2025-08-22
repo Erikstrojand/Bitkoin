@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>All Transactions</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* small extras specific to this page */
+    .tx-toolbar { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .pager { display:flex; gap:8px; align-items:center; }
+    .tx-table { width:100%; border-collapse:collapse; }
+    .tx-table th, .tx-table td { padding:10px; border-bottom:1px solid #e6ebf1; text-align:left; }
+    .tx-table th { background:linear-gradient(#ffffff, #f6f9fc); font-weight:700; color:#2c3e50; }
+    .meta { color:#6b7380; font-size:12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>All Transactions</h1>
+    <div class="userbar">
+      <button id="btnBack" class="btn">Back</button>
+      <button id="btnSignOut" class="btn red">Sign out</button>
+    </div>
+  </header>
+
+  <section class="grid">
+    <div class="card span12">
+      <div class="tx-toolbar">
+        <h2 style="margin:0">Transaction History</h2>
+        <div class="pager">
+          <button id="btnPrev" class="btn" disabled>Prev</button>
+          <button id="btnNext" class="btn" disabled>Next</button>
+        </div>
+      </div>
+
+      <div id="rangeInfo" class="muted" style="margin:6px 0 12px 0;"></div>
+
+      <div class="item" style="padding:0;">
+        <table class="tx-table">
+          <thead>
+            <tr>
+              <th style="width:140px;">When</th>
+              <th style="width:120px;">Type</th>
+              <th style="width:120px;">Amount</th>
+              <th>From → To</th>
+              <th>Memo</th>
+              <th style="width:160px;">Details</th>
+            </tr>
+          </thead>
+          <tbody id="txRows">
+            <!-- rows injected here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pager" style="margin-top:12px;">
+        <button id="btnPrevBottom" class="btn" disabled>Prev</button>
+        <button id="btnNextBottom" class="btn" disabled>Next</button>
+      </div>
+
+      <div id="emptyMsg" class="muted" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import {
+      getFirestore, collection, query, where, orderBy, limit, getDocs, startAfter
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJUtUPmktXnkh4agB3Bq40gKGWSC73rGM",
+      authDomain: "bitkoin-b9ebc.firebaseapp.com",
+      projectId: "bitkoin-b9ebc",
+      storageBucket: "bitkoin-b9ebc.firebasestorage.app",
+      messagingSenderId: "752112888101",
+      appId: "1:752112888101:web:305ad8a0c7ad5ae76812cc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const $ = (id)=>document.getElementById(id);
+    const PAGE_SIZE = 30;
+
+    $('btnBack').addEventListener('click', ()=>{ window.location.href = "index.html"; });
+    $('btnSignOut').addEventListener('click', async ()=>{
+      try { await signOut(auth); } finally { window.location.href = "index.html"; }
+    });
+
+    
+    let userUid = null;
+    let pages = [];            
+    let cursors = [];          
+    let currentPage = 0;       
+
+    function fmtTs(ts){
+      try{ return ts?.toDate?.().toLocaleString() || ''; }catch(_){ return ''; }
+    }
+    function escapeHtml(s){ return new Option(s ?? '').innerHTML; }
+
+    function renderPage(){
+      const tbody = $('txRows');
+      const info = $('rangeInfo');
+      const emptyMsg = $('emptyMsg');
+      tbody.innerHTML = '';
+      emptyMsg.textContent = '';
+
+      if (!pages[currentPage] || pages[currentPage].docs.length === 0) {
+        emptyMsg.textContent = 'No transactions found.';
+        updatePagerButtons();
+        info.textContent = '';
+        return;
+      }
+
+      const docs = pages[currentPage].docs;
+      const startAt = (currentPage * PAGE_SIZE) + 1;
+      const endAt = (currentPage * PAGE_SIZE) + docs.length;
+      info.textContent = `Showing ${startAt}–${endAt}`;
+
+      for (const snap of docs){
+        const t = snap.data();
+        const when = fmtTs(t.createdAt);
+        let type = t.type || '';
+        let amount = t.amount ?? (t.type === 'mint' ? 1 : '');
+        let fromTo = '';
+        if (t.type === 'transfer') {
+          fromTo = `${escapeHtml(t.senderHandle || '')} → ${escapeHtml(t.recipientHandle || '')}`;
+        } else if (t.type === 'mint') {
+          fromTo = `${escapeHtml(t.ownerHandle || '')}`;
+        }
+        const memo = escapeHtml(t.memo || '');
+        const detail = t.type === 'mint'
+          ? `coin ${escapeHtml((t.coinId||'').slice(0,10))}…`
+          : (t.coinIds && t.coinIds.length ? `${t.coinIds.length} coin(s)` : '');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${when}</td>
+          <td>${escapeHtml(type)}</td>
+          <td>${escapeHtml(String(amount))}</td>
+          <td>${fromTo}</td>
+          <td>${memo}</td>
+          <td class="meta">${escapeHtml(detail)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      updatePagerButtons();
+    }
+
+    function updatePagerButtons(){
+      const hasPrev = currentPage > 0;
+      const hasNext = !!cursors[currentPage]; 
+
+      for (const id of ['btnPrev','btnPrevBottom']) {
+        $(id).disabled = !hasPrev;
+      }
+      for (const id of ['btnNext','btnNextBottom']) {
+        $(id).disabled = !hasNext;
+      }
+    }
+
+    async function loadFirstPage(){
+      
+      const qBase = query(
+        collection(db,'tx'),
+        where('participants','array-contains', userUid),
+        orderBy('createdAt','desc'),
+        limit(PAGE_SIZE)
+      );
+      const snap = await getDocs(qBase);
+      pages[0] = {
+        docs: snap.docs,
+        first: snap.docs[0] || null,
+        last: snap.docs[snap.docs.length - 1] || null
+      };
+      cursors[0] = snap.docs.length === PAGE_SIZE ? pages[0].last : null;
+      currentPage = 0;
+      renderPage();
+    }
+
+    async function loadNextPage(){
+      if (!cursors[currentPage]) return; 
+      const qNext = query(
+        collection(db,'tx'),
+        where('participants','array-contains', userUid),
+        orderBy('createdAt','desc'),
+        startAfter(cursors[currentPage]),
+        limit(PAGE_SIZE)
+      );
+      const snap = await getDocs(qNext);
+      const nextIndex = currentPage + 1;
+      pages[nextIndex] = {
+        docs: snap.docs,
+        first: snap.docs[0] || null,
+        last: snap.docs[snap.docs.length - 1] || null
+      };
+      cursors[nextIndex] = snap.docs.length === PAGE_SIZE ? pages[nextIndex].last : null;
+      currentPage = nextIndex;
+      renderPage();
+    }
+
+    function goPrevPage(){
+      if (currentPage === 0) return;
+      currentPage -= 1;
+      renderPage();
+    }
+
+    $('btnPrev').addEventListener('click', goPrevPage);
+    $('btnPrevBottom').addEventListener('click', goPrevPage);
+    $('btnNext').addEventListener('click', loadNextPage);
+    $('btnNextBottom').addEventListener('click', loadNextPage);
+
+    onAuthStateChanged(auth, async (user)=>{
+      if(!user){
+        
+        window.location.href = "index.html";
+        return;
+      }
+      userUid = user.uid;
+      try {
+        await loadFirstPage();
+      } catch (e) {
+        console.error(e);
+        $('emptyMsg').textContent = 'Failed to load transactions.';
+      }
+    });
+  </script>
+</body>
+</html>
